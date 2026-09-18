@@ -26,6 +26,9 @@ type Quote = {
   percent_change_1h: number;
   percent_change_24h: number;
   percent_change_7d: number;
+  percent_change_30d?: number;
+  percent_change_60d?: number;
+  percent_change_90d?: number;
   market_cap: number;
   market_cap_dominance: number;
   last_updated?: string;
@@ -44,10 +47,19 @@ type Anomaly = Asset & {
   reasons: string[];
   metrics: {
     volumeToCap: number;
-    momentum: number;
-    breadth: number;
+    momentum24h: number;
+    return1h: number;
+    return7d: number;
+    return30d: number | null;
+    return60d: number | null;
     volumeChange: number;
     acceleration: number;
+    movePercentile: number;
+    accelerationPercentile: number;
+    volumeChangePercentile: number;
+    liquidityPercentile: number;
+    baseScore: number;
+    bonusScore: number;
   };
 };
 
@@ -91,6 +103,16 @@ type Investigation = {
     metrics?: Anomaly["metrics"];
   };
   conclusion: string;
+  ai_explanation?: string | null;
+  comparison?: {
+    btc_24h: number;
+    eth_24h: number;
+    market_average_24h: number;
+    universe_size: number;
+    relative_to_btc: number;
+    relative_to_eth: number;
+    relative_to_market: number;
+  };
 };
 
 function formatPrice(value: number) {
@@ -186,6 +208,16 @@ export default function Home() {
   }
 
   async function findSimilarSetups(asset: Anomaly) {
+    const currentMarket = market;
+
+    if (!currentMarket) {
+      setSimilarSetups({
+        success: false,
+        error: "Market data is not loaded yet.",
+      });
+      return;
+    }
+
     setSimilarLoading(true);
     setSimilarSetups(null);
 
@@ -197,7 +229,7 @@ export default function Home() {
         },
         body: JSON.stringify({
           asset,
-          assets: market.data,
+          assets: currentMarket.data,
         }),
       });
 
@@ -223,6 +255,11 @@ export default function Home() {
   }
 
   async function investigate(asset: Anomaly) {
+    if (!market) {
+      setInvestigationError("Market data is not loaded yet.");
+      return;
+    }
+
     setSelected(asset);
     setInvestigation(null);
     setInvestigationError("");
